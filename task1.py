@@ -17,12 +17,24 @@ screen.fill(BLUE)
 pg.display.set_caption("Игра")
 clock = pg.time.Clock()
 
+# дом
 pg.draw.rect(screen, BLACK, (WIDTH / 2 - 300, HEIGHT / 2 - 20, 600, 270), 10)
 pg.draw.lines(screen, BLACK, True, [(WIDTH / 2 - 300, HEIGHT / 2 - 20), (WIDTH / 2 + 300, HEIGHT / 2 - 20), (WIDTH / 2, HEIGHT / 2 - 200)], 10)
 pg.draw.rect(screen, BLACK, (WIDTH / 2 - 150, HEIGHT / 2 + 50, 75, 75), 7)
 pg.draw.rect(screen, BLACK, (WIDTH / 2 + 75, HEIGHT / 2 + 50, 75, 75), 7)
 pg.draw.circle(screen, ORANGE, (100, 100), 50)
-pg.draw.circle(screen, GRAY, (WIDTH / 2, HEIGHT / 2 + 50), 50)
+
+# дверь
+door_width = 80
+door_height = 120
+door_x = WIDTH / 2 - door_width / 2
+door_y = HEIGHT / 2 + 250 - door_height
+
+pg.draw.rect(screen, BROWN, (door_x, door_y, door_width, door_height))
+pg.draw.rect(screen, BLACK, (door_x, door_y, door_width, door_height), 3)
+
+# ручка
+pg.draw.circle(screen, ORANGE, (int(door_x + door_width - 15), int(door_y + door_height / 2)), 5)
 
 pg.display.update()
 

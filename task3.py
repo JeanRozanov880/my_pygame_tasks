@@ -20,7 +20,8 @@ x = 0  # начинаем у левой границы
 y = 0
 
 # параметры движения
-direction = 1  # направление: 1 - вправо, -1 - влево, -2 - вверх, 2 - вниз
+direction_x = 1  # направление по X: 1 - вправо, -1 - влево
+direction_y = 0  # направление по Y: 1 - вниз, -1 - вверх
 speed = 3  # начальная скорость
 
 # до начала игрового цикла отображаем объекты:
@@ -42,15 +43,24 @@ while flag_play:
     # изменение состояний объектов:
     # проверяем достижение границ
 
-    if x + w >= WIN_WIDTH:  # коснулись правой границы
-        direction = 2  # меняем направление вниз
-    elif y + h >= WIN_HEIGHT:  # коснулись низа
-        direction = -1  # меняем направление влево
-    elif x <= 0:  # коснулись левой границы
-        direction = -2  # меняем направление вверх
-    else:
-        direction = 1
+    if x + w >= WIN_WIDTH and direction_x == 1:  # коснулись правой границы, летим вниз
+        direction_x = 0
+        direction_y = 1
 
+    elif y + h >= WIN_HEIGHT and direction_y == 1:  # коснулись нижней границы, летим влево
+        direction_x = -1
+        direction_y = 0
+
+    elif x <= 0 and direction_x == -1:
+        direction_x = 0
+        direction_y = -1
+
+    elif y <= 0 and direction_y == -1:
+        direction_x = 1
+        direction_y = 0
+
+    x += direction_x * speed
+    y += direction_y * speed
 
 
     screen.fill(BLUE)  # заливаем фон, стирая предыдущий эллипс

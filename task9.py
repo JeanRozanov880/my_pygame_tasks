@@ -34,7 +34,6 @@ class Player:
     PLAYER_RADIUS = 50
 
     def __init__(self):
-
         self.radius = Player.PLAYER_RADIUS
         # создаем начальную позицию и сразу инициализируем rect
         self.start_pos = (WIN_WIDTH / 2, WIN_HEIGHT / 2)
@@ -61,6 +60,12 @@ class Player:
         # увеличиваем радиус игрока в зависимости от размера еды
         growth_factor = 0.5  # коэффициент роста (50% от радиуса еды)
         self.radius += int(food_radius * growth_factor)
+        self.update_surface()
+        self.mask = pg.mask.from_surface(self.surf)  # обновляем маску
+
+    def reset(self):
+        # сбрасываем радиус игрока до начального значения
+        self.radius = Player.PLAYER_RADIUS
         self.update_surface()
         self.mask = pg.mask.from_surface(self.surf)  # обновляем маску
 
@@ -99,6 +104,9 @@ class Button:
     def draw(self, screen):
         screen.blit(self.button_surf, self.button_rect)
         screen.blit(self.text_surf, self.text_rect)
+
+    def is_clicked(self, pos):
+        return self.button_rect.collidepoint(pos)
 
 
 def check_collisions(player, bombs):
@@ -143,6 +151,9 @@ while flag_play:
             pg.quit()
             flag_play = False
             break
+        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            if my_button.is_clicked(event.pos):
+                player.reset()  # сбрасываем радиус игрока
     if not flag_play:
         break
 

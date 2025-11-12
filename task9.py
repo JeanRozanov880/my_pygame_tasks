@@ -82,11 +82,17 @@ class Player:
 class Text:
     def __init__(self, text, text_size, text_color, text_pos):
         self.font = pg.font.SysFont(None, text_size)  # пусть будет стандартный шрифт pygame для всех текстов
-        self.suft = self.font.render(text, True, text_color)  # пусть все тексты будут сглажены и без фона
-        self.rect = self.suft.get_rect(center=text_pos)
+        self.surf = self.font.render(text, True, text_color)  # пусть все тексты будут сглажены и без фона
+        self.rect = self.surf.get_rect(center=text_pos)
+
+    def update_text(self, new_text):
+        # метод для обновления текста
+        old_center = self.rect.center
+        self.surf = self.font.render(new_text, True, RED)  # используем тот же цвет
+        self.rect = self.surf.get_rect(center=old_center)
 
     def draw(self, screen):
-        screen.blit(self.suft, self.rect)
+        screen.blit(self.surf, self.rect)
 
 
 class Button:
@@ -126,21 +132,14 @@ screen = pg.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 pg.display.set_caption("Игра")
 clock = pg.time.Clock()
 
-my_text = Text("Это просто текст", 32, RED, (WIN_WIDTH / 2, WIN_HEIGHT * 1 / 3))
-my_button = Button("Кнопка", 64, BLACK, WHITE, (WIN_WIDTH / 2, WIN_HEIGHT * 2 / 3))
-my_text.draw(screen)
-my_button.draw(screen)
+# Создаем текст для отображения радиуса игрока
+radius_text = Text(f"Радиус игрока: {Player.PLAYER_RADIUS}", 32, RED, (WIN_WIDTH / 2, WIN_HEIGHT * 1 / 3))
+my_button = Button("Сбросить размер", 64, BLACK, WHITE, (WIN_WIDTH / 2, WIN_HEIGHT * 2 / 3))
 
 bombs = [Food((random.randint(Food.RADIUS, WIN_WIDTH - Food.RADIUS),
                random.randint(Food.RADIUS, WIN_HEIGHT - Food.RADIUS)))
          for _ in range(3)]
 player = Player()
-
-
-for elem in bombs:
-    elem.draw(screen)
-player.draw(screen)
-pg.display.update()
 
 flag_play = True
 while flag_play:
@@ -168,8 +167,12 @@ while flag_play:
         player.move(dy=1)
 
     check_collisions(player, bombs)
+
+    # Обновляем текст с текущим радиусом игрока
+    radius_text.update_text(f"Радиус игрока: {player.radius}")
+
     screen.fill(BLUE)
-    my_text.draw(screen)
+    radius_text.draw(screen)
     my_button.draw(screen)
 
     for elem in bombs:

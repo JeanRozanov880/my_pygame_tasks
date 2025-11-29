@@ -9,19 +9,22 @@ gravity = 0.25
 velocity = 0
 jump_strength = -7
 
+rand_height_1 = random.randint(150, 215)
+rand_height_2 = random.randint(150, 215)
+
 
 class Pipes:
     def __init__(self):
-        self.origin_surf_1 = pg.image.load('pipe_for_flappy.png').convert_alpha()
+        self.origin_surf_1 = pg.image.load('images/pipe_for_flappy.png').convert_alpha()
         self.new_surf_1 = pg.transform.scale(self.origin_surf_1,
                                              (self.origin_surf_1.get_width() / 1.7,
-                                              self.origin_surf_1.get_height() / 2))
+                                              self.origin_surf_1.get_height() - rand_height_1))
         self.origin_rect_1 = self.new_surf_1.get_rect(center=(W / 1.2, H / 1.2))
 
-        self.origin_surf_2 = pg.image.load('pipe_for_flappy.png').convert_alpha()
+        self.origin_surf_2 = pg.image.load('images/pipe_for_flappy.png').convert_alpha()
         self.new_surf_2 = pg.transform.scale(self.origin_surf_2,
                                              (self.origin_surf_2.get_width() / 1.7,
-                                              self.origin_surf_2.get_height() / 2))
+                                              self.origin_surf_2.get_height() - rand_height_2))
         self.final_surf_2 = pg.transform.rotate(self.new_surf_2, 180)
         self.origin_rect_2 = self.new_surf_1.get_rect(center=(W / 1.2, H / 6))
 
@@ -41,15 +44,15 @@ class Pipes:
 
 class Bird:
     def __init__(self):
-        self.origin_surf = pg.image.load('flappy_2.png').convert_alpha()
+        self.origin_surf = pg.image.load('images/flappy_2.png').convert_alpha()
         self.new_surf = pg.transform.scale(self.origin_surf,
-                                           (self.origin_surf.get_width() / 4,
-                                            self.origin_surf.get_height() / 4))
+                                           (self.origin_surf.get_width() / 6,
+                                            self.origin_surf.get_height() / 6))
         self.origin_rect = self.new_surf.get_rect(center=(W / 6, H / 2))
         self.mask = pg.mask.from_surface(self.new_surf)
 
     def move(self):
-        global velocity
+        global velocity, gravity
         velocity += gravity
         self.origin_rect.y += velocity
 
@@ -60,6 +63,12 @@ class Bird:
     def draw(self, screen):
         screen.blit(self.new_surf, self.origin_rect)
 
+    def check_pos(self):
+        if self.origin_rect.bottom > H + self.new_surf.get_height() / 3:
+            pg.quit()
+        if self.origin_rect.top > H:
+            pg.quit()
+
 
 def collisions(bird, pipes):
     offset_1 = (pipes.origin_rect_1.x - bird.origin_rect.x, pipes.origin_rect_1.y - bird.origin_rect.y)
@@ -67,7 +76,7 @@ def collisions(bird, pipes):
 
     if bird.mask.overlap(pipes.mask_1, offset_1) is not None:
         pg.quit()
-    if bird.mask.overlap(pipes.mask_2, offset_2 ) is not None:
+    if bird.mask.overlap(pipes.mask_2, offset_2) is not None:
         pg.quit()
 
 
@@ -104,8 +113,7 @@ while flag_play:
     if not flag_play:
         break
 
-    new_pipe = Pipes()
-    all_pipes.append(new_pipe)
+    all_pipes.append(Pipes())
 
     for pipe in all_pipes:
         pipe.move()
@@ -115,6 +123,7 @@ while flag_play:
         pipes.move(dx=-1)
 
     collisions(bird, pipes)
+    bird.check_pos()
 
     screen.fill(BG)
     bird.draw(screen)

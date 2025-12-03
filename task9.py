@@ -2,180 +2,156 @@ import pygame as pg
 import random
 
 FPS = 60
-WIN_WIDTH, WIN_HEIGHT = 1000, 600
-WHITE, BLACK, RED, BLUE = (255, 255, 255), (0, 0, 0), (255, 0, 0), (0, 65, 117)
+W, H = 1000, 600
+BG = (100, 170, 220)
+WHITE = (255, 255, 255)
+speed = 3
+gravity = 0.25
+velocity = 0
+jump_strength = -7
 
 
-class Food:
-    RADIUS = 30
-
-    def __init__(self, pos):
-        self.surf = pg.Surface((Food.RADIUS * 2, Food.RADIUS * 2), pg.SRCALPHA)
-        self.rect = self.surf.get_rect(center=pos)
-        self.surf.fill((0, 0, 0, 0))
-        pg.draw.circle(self.surf, (*BLACK, 255),
-                       (self.rect.width / 2, self.rect.height / 2), self.RADIUS)
-        self.mask = pg.mask.from_surface(self.surf)  # маска для бомбы
-        self.active = True  # флаг активности еды
-
-    def explode(self):
-        self.surf.fill((0, 0, 0, 0))
-        self.active = False  # деактивируем еду после съедания
-
-    def draw(self, screen):
-        if self.active:  # рисуем только активную еду
-            screen.blit(self.surf, self.rect)
-
-
-class Player:
-    COLOR = (0, 0, 255)
-    WIDTH, HEIGHT = 100, 200
-    SPEED = 3
-    PLAYER_RADIUS = 50
-
+class Pipes:
     def __init__(self):
-        self.radius = Player.PLAYER_RADIUS
-        # создаем начальную позицию и сразу инициализируем rect
-        self.start_pos = (WIN_WIDTH / 2, WIN_HEIGHT / 2)
-        self.surf = pg.Surface((self.radius * 2, self.radius * 2), pg.SRCALPHA)
-        self.rect = self.surf.get_rect(center=self.start_pos)
-        self.update_surface()
-        self.speed = Player.SPEED
-        self.mask = pg.mask.from_surface(self.surf)  # маска для игрока
+        rand_height_1 = random.randint(200, 400)  # рандомный размер для каждой трубы
 
-    def update_surface(self):
-        # сохраняем текущую позицию центра перед обновлением
-        old_center = self.rect.center
+        self.origin_surf_1 = pg.image.load('images/pipe.png').convert_alpha()
+        self.new_surf_1 = pg.transform.scale(self.origin_surf_1,
+                                             (self.origin_surf_1.get_width() / 1.7,
+                                              self.origin_surf_1.get_height() / 2))
+        self.origin_rect_1 = self.new_surf_1.get_rect(midtop=(W + 100, rand_height_1))
 
-        # обновляем поверхность игрока с новым радиусом
-        self.surf = pg.Surface((self.radius * 2, self.radius * 2), pg.SRCALPHA)
-        self.rect = self.surf.get_rect(center=old_center)
-        self.surf.fill((0, 0, 0, 0))
-        pg.draw.circle(self.surf, (*Player.COLOR, 255),
-                       (self.rect.width / 2, self.rect.height / 2), self.radius)
-        pg.draw.circle(self.surf, (*BLACK, 255),
-                       (self.rect.width / 2, self.rect.height / 2), self.radius, 5)
+        self.origin_surf_2 = pg.image.load('images/pipe.png').convert_alpha()
+        self.new_surf_2 = pg.transform.scale(self.origin_surf_2,
+                                             (self.origin_surf_2.get_width() / 1.7,
+                                              self.origin_surf_2.get_height() / 2))
+        self.final_surf_2 = pg.transform.rotate(self.new_surf_2, 180)
+        self.origin_rect_2 = self.final_surf_2.get_rect(midbottom=(W + 100, rand_height_1 - 150))
 
-    def grow(self, food_radius):
-        # увеличиваем радиус игрока в зависимости от размера еды
-        growth_factor = 0.5  # коэффициент роста (50% от радиуса еды)
-        self.radius += int(food_radius * growth_factor)
-        self.update_surface()
-        self.mask = pg.mask.from_surface(self.surf)  # обновляем маску
+        self.mask_1 = pg.mask.from_surface(self.new_surf_1)  # маски труб
+        self.mask_2 = pg.mask.from_surface(self.final_surf_2)
 
-    def reset(self):
-        # сбрасываем радиус игрока до начального значения
-        self.radius = Player.PLAYER_RADIUS
-        self.update_surface()
-        self.mask = pg.mask.from_surface(self.surf)  # обновляем маску
+    def move(self):
+        self.origin_rect_1.x -= speed
+        self.origin_rect_2.x -= speed
 
-    def move(self, dx=0, dy=0):
-        if (self.rect.left + dx * self.speed) > 0 and (self.rect.right + dx * self.speed) < WIN_WIDTH:
-            self.rect.x += dx * self.speed
-        if (self.rect.top + dy * self.speed) > 0 and (self.rect.bottom + dy * self.speed) < WIN_HEIGHT:
-            self.rect.y += dy * self.speed
+    def draw(self, screen):  # рисуем трубы
+        screen.blit(self.new_surf_1, self.origin_rect_1)
+        screen.blit(self.final_surf_2, self.origin_rect_2)
 
-    def draw(self, screen):
-        screen.blit(self.surf, self.rect)
+    def is_offscreen(self):  # проверяем выход труб за границы экрана
+        return self.origin_rect_1.x <= 0
+
+
+class Bird:
+    def __init__(self):
+        self.origin_surf = pg.image.load('images/flappy_2.png').convert_alpha()
+        self.new_surf = pg.transform.scale(self.origin_surf,
+                                           (self.origin_surf.get_width() / 6,
+                                            self.origin_surf.get_height() / 6))
+        self.origin_rect = self.new_surf.get_rect(center=(W / 6, H / 2))
+        self.mask = pg.mask.from_surface(self.new_surf)  # маска
+
+    def move(self):  # движение птицы с учетом гравитации
+        global velocity, gravity
+        velocity += gravity
+        self.origin_rect.y += velocity
+
+    def flap(self):  # взмах крыльями (прыжок)
+        global velocity
+        velocity = jump_strength
+
+    def draw(self, screen):  # отрисовка птицы
+        screen.blit(self.new_surf, self.origin_rect)
+
+    def check_pos(self):  # проигрыш если доходим до верха / низа
+        if self.origin_rect.bottom > H + self.new_surf.get_height() / 3:
+            pg.quit()
+        if self.origin_rect.top <= 0 - self.new_surf.get_height() / 3:
+            pg.quit()
 
 
 class Text:
     def __init__(self, text, text_size, text_color, text_pos):
-        self.font = pg.font.SysFont(None, text_size)  # пусть будет стандартный шрифт pygame для всех текстов
-        self.surf = self.font.render(text, True, text_color)  # пусть все тексты будут сглажены и без фона
+        self.font = pg.font.SysFont(None, text_size)
+        self.surf = self.font.render(text, True, text_color)
         self.rect = self.surf.get_rect(center=text_pos)
-
-    def update_text(self, new_text):
-        # метод для обновления текста
-        old_center = self.rect.center
-        self.surf = self.font.render(new_text, True, RED)  # используем тот же цвет
-        self.rect = self.surf.get_rect(center=old_center)
 
     def draw(self, screen):
         screen.blit(self.surf, self.rect)
 
 
-class Button:
-    def __init__(self, text, text_size, text_color, button_color, button_pos):
-        self.font = pg.font.SysFont(None, text_size)
-        # поверхность и Rect текста:
-        self.text_surf = self.font.render(text, True, text_color)
-        self.text_rect = self.text_surf.get_rect(center=button_pos)
-        # т. к. она прилегает к тексту вплотную, делаем поверхность и Rect кнопки, границы к-рой будут на 50px дальше:
-        self.button_surf = pg.Surface((self.text_surf.get_width() + 50, self.text_surf.get_height() + 50))
-        self.button_rect = self.button_surf.get_rect(center=button_pos)
-        self.button_surf.fill(button_color)
-        pg.draw.rect(self.button_surf, BLACK, (0, 0, self.button_rect.width, self.button_rect.height), 3)
+def collisions(bird, pipes_list):  # проверка столкновений птицы с трубами
+    for pipes in pipes_list:
+        offset_1 = (pipes.origin_rect_1.x - bird.origin_rect.x, pipes.origin_rect_1.y - bird.origin_rect.y)
+        offset_2 = (pipes.origin_rect_2.x - bird.origin_rect.x, pipes.origin_rect_2.y - bird.origin_rect.y)
 
-    def draw(self, screen):
-        screen.blit(self.button_surf, self.button_rect)
-        screen.blit(self.text_surf, self.text_rect)
-
-    def is_clicked(self, pos):
-        return self.button_rect.collidepoint(pos)
+        if bird.mask.overlap(pipes.mask_1, offset_1) is not None:
+            pg.quit()
+        if bird.mask.overlap(pipes.mask_2, offset_2) is not None:
+            pg.quit()
 
 
-def check_collisions(player, bombs):
-    # будем проверять пересечение маски игрока с масками бомб
-    # так как порядок важен, пусть маска игрока будет первой маской, маска бомбы - второй
-    for bomb in bombs:  # проверяем только активную еду
-        if bomb.active:  # проверяем только активную еду
-            offset = (bomb.rect.x - player.rect.x, bomb.rect.y - player.rect.y)  # вычисляем смещение
-            # смещение указывает на сколько вторая маска смещена относительно первой
-            if player.mask.overlap(bomb.mask, offset) is not None:  # проверяем пересечение первой маски со второй
-                bomb.explode()
-                player.grow(Food.RADIUS)  # увеличиваем радиус игрока
+def count(bird, pipes_list):
+    cnt = 0
+    for pipe in pipes_list:
+        if bird.origin_rect.left >= pipe.origin_rect_1.right:
+            cnt += 1
+            return cnt
 
 
 pg.init()
-screen = pg.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
+screen = pg.display.set_mode((W, H))
 pg.display.set_caption("Игра")
 clock = pg.time.Clock()
+pg.mixer.music.load('background_music.wav')
+pg.mixer.music.play(-1)
 
-# Создаем текст для отображения радиуса игрока
-radius_text = Text(f"Радиус игрока: {Player.PLAYER_RADIUS}", 32, RED, (WIN_WIDTH / 2, WIN_HEIGHT * 1 / 3))
-my_button = Button("Сбросить размер", 64, BLACK, WHITE, (WIN_WIDTH / 2, WIN_HEIGHT * 2 / 3))
 
-bombs = [Food((random.randint(Food.RADIUS, WIN_WIDTH - Food.RADIUS),
-               random.randint(Food.RADIUS, WIN_HEIGHT - Food.RADIUS)))
-         for _ in range(3)]
-player = Player()
+all_pipes = []
+
+bird = Bird()
+pipes = Pipes()
+text = Text(str(count(bird, all_pipes)), 32, WHITE, (W / 4, H / 4))
+
+screen.fill(BG)
+text.draw(screen)
+bird.draw(screen)
+pipes.draw(screen)
+pg.display.update()
 
 flag_play = True
+SPAWN_EVENT = pg.USEREVENT + 1
+pg.time.set_timer(SPAWN_EVENT, 1500)
 while flag_play:
     clock.tick(FPS)
 
+    # цикл обработки событий:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             pg.quit()
             flag_play = False
             break
-        if event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
-            if my_button.is_clicked(event.pos):
-                player.reset()  # сбрасываем радиус игрока
-    if not flag_play:
-        break
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_SPACE:
+                bird.flap()
+        if event.type == SPAWN_EVENT:
+            all_pipes.append(Pipes())
 
-    keys = pg.key.get_pressed()
-    if keys[pg.K_LEFT]:
-        player.move(dx=-1)
-    if keys[pg.K_RIGHT]:
-        player.move(dx=1)
-    if keys[pg.K_UP]:
-        player.move(dy=-1)
-    if keys[pg.K_DOWN]:
-        player.move(dy=1)
+    bird.move()
 
-    check_collisions(player, bombs)
+    for elem in all_pipes[:]:
+        elem.move()
 
-    # Обновляем текст с текущим радиусом игрока
-    radius_text.update_text(f"Радиус игрока: {player.radius}")
+    all_pipes = [pipes for pipes in all_pipes if not pipes.is_offscreen()]
 
-    screen.fill(BLUE)
-    radius_text.draw(screen)
-    my_button.draw(screen)
 
-    for elem in bombs:
+    collisions(bird, all_pipes)
+    bird.check_pos()
+
+    screen.fill(BG)
+    for elem in all_pipes:
         elem.draw(screen)
-    player.draw(screen)
+    text.draw(screen)
+    bird.draw(screen)
     pg.display.update()

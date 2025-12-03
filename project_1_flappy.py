@@ -9,37 +9,38 @@ gravity = 0.25
 velocity = 0
 jump_strength = -7
 
-rand_height_1 = random.randint(150, 215)
-rand_height_2 = random.randint(150, 215)
 
 
 class Pipes:
     def __init__(self):
+        rand_height_1 = random.randint(200, 400)
+
         self.origin_surf_1 = pg.image.load('images/pipe_for_flappy.png').convert_alpha()
         self.new_surf_1 = pg.transform.scale(self.origin_surf_1,
                                              (self.origin_surf_1.get_width() / 1.7,
-                                              self.origin_surf_1.get_height() - rand_height_1))
-        self.origin_rect_1 = self.new_surf_1.get_rect(center=(W / 1.2, H / 1.2))
+                                              self.origin_surf_1.get_height() / 2))
+        self.origin_rect_1 = self.new_surf_1.get_rect(midtop=(W + 100, rand_height_1))
 
         self.origin_surf_2 = pg.image.load('images/pipe_for_flappy.png').convert_alpha()
         self.new_surf_2 = pg.transform.scale(self.origin_surf_2,
                                              (self.origin_surf_2.get_width() / 1.7,
-                                              self.origin_surf_2.get_height() - rand_height_2))
+                                              self.origin_surf_2.get_height() / 2))
         self.final_surf_2 = pg.transform.rotate(self.new_surf_2, 180)
-        self.origin_rect_2 = self.new_surf_1.get_rect(center=(W / 1.2, H / 6))
+        self.origin_rect_2 = self.final_surf_2.get_rect(midbottom=(W + 100, rand_height_1 - 150))
 
         self.mask_1 = pg.mask.from_surface(self.new_surf_1)
-        self.mask_2 = pg.mask.from_surface(self.new_surf_2)
+        self.mask_2 = pg.mask.from_surface(self.final_surf_2)
 
-    def move(self, dx=0):
-        if (self.origin_rect_1.left + dx * speed) < W:
-            self.origin_rect_1.x += dx * speed
-        if (self.origin_rect_2.left + dx * speed) < W:
-            self.origin_rect_2.x += dx * speed
+    def move(self):
+        self.origin_rect_1.x -= speed
+        self.origin_rect_2.x -= speed
 
     def draw(self, screen):
         screen.blit(self.new_surf_1, self.origin_rect_1)
         screen.blit(self.final_surf_2, self.origin_rect_2)
+
+    def is_offscreen(self):
+        return self.origin_rect_1.x < 0
 
 
 class Bird:
@@ -66,18 +67,19 @@ class Bird:
     def check_pos(self):
         if self.origin_rect.bottom > H + self.new_surf.get_height() / 3:
             pg.quit()
-        if self.origin_rect.top > H:
+        if self.origin_rect.top <= 0 - self.new_surf.get_height() / 3:
             pg.quit()
 
 
-def collisions(bird, pipes):
-    offset_1 = (pipes.origin_rect_1.x - bird.origin_rect.x, pipes.origin_rect_1.y - bird.origin_rect.y)
-    offset_2 = (pipes.origin_rect_2.x - bird.origin_rect.x, pipes.origin_rect_2.y - bird.origin_rect.y)
+def collisions(bird, pipes_list):
+    for pipes in pipes_list:
+        offset_1 = (pipes.origin_rect_1.x - bird.origin_rect.x, pipes.origin_rect_1.y - bird.origin_rect.y)
+        offset_2 = (pipes.origin_rect_2.x - bird.origin_rect.x, pipes.origin_rect_2.y - bird.origin_rect.y)
 
-    if bird.mask.overlap(pipes.mask_1, offset_1) is not None:
-        pg.quit()
-    if bird.mask.overlap(pipes.mask_2, offset_2) is not None:
-        pg.quit()
+        if bird.mask.overlap(pipes.mask_1, offset_1) is not None:
+            pg.quit()
+        if bird.mask.overlap(pipes.mask_2, offset_2) is not None:
+            pg.quit()
 
 
 pg.init()
@@ -96,36 +98,36 @@ pipes.draw(screen)
 pg.display.update()
 
 flag_play = True
-game_over = False
+SPAWN_EVENT = pg.USEREVENT + 1
+pg.time.set_timer(SPAWN_EVENT, 1500)
 
 while flag_play:
     clock.tick(FPS)
 
     # цикл обработки событий:
     for event in pg.event.get():
-        if event.type == pg.QUIT or game_over:
+        if event.type == pg.QUIT:
             pg.quit()
             flag_play = False
             break
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_SPACE:
                 bird.flap()
-    if not flag_play:
-        break
+        if event.type == SPAWN_EVENT:
+            all_pipes.append(Pipes())
 
-    all_pipes.append(Pipes())
+    bird.move()
 
-    for pipe in all_pipes:
-        pipe.move()
+    for elem in all_pipes[:]:
+        elem.move()
 
-    if not game_over:
-        bird.move()
-        pipes.move(dx=-1)
+    all_pipes = [pipes for pipes in all_pipes if not pipes.is_offscreen()]
 
-    collisions(bird, pipes)
+    collisions(bird, all_pipes)
     bird.check_pos()
 
     screen.fill(BG)
+    for elem in all_pipes:
+        elem.draw(screen)
     bird.draw(screen)
-    pipes.draw(screen)
     pg.display.update()

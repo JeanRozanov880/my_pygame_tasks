@@ -75,14 +75,19 @@ class Bird:
 
 
 def collisions(bird, pipes_list):
+    game_end = False
     for pipes in pipes_list:
         offset_1 = (pipes.origin_rect_1.x - bird.origin_rect.x, pipes.origin_rect_1.y - bird.origin_rect.y)
         offset_2 = (pipes.origin_rect_2.x - bird.origin_rect.x, pipes.origin_rect_2.y - bird.origin_rect.y)
 
         if bird.mask.overlap(pipes.mask_1, offset_1) is not None:
-            pg.quit()
+            text_end = font.render('Нажмите R для рестарта', True, (255, 255, 255))
+            game_end = True
+            return text_end, game_end
         if bird.mask.overlap(pipes.mask_2, offset_2) is not None:
-            pg.quit()
+            text_end = font.render('Нажмите R для рестарта', True, (255, 255, 255))
+            game_end = True
+            return text_end, game_end
 
 
 pg.init()
@@ -96,7 +101,6 @@ clock = pg.time.Clock()
 
 # шрифты
 font = pg.font.SysFont(None, 48)
-title_font = pg.font.SysFont(None, 72)
 instruction_font = pg.font.SysFont(None, 36)
 
 all_pipes = []

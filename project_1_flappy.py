@@ -8,28 +8,31 @@ speed = 3
 gravity = 0.25
 velocity = 0
 jump_strength = -7
-
+score = 0  # Добавлен счетчик
 
 
 class Pipes:
-    def __init__(self):
+    def __init__(self, x_offset=0):
         rand_height_1 = random.randint(200, 400)
 
-        self.origin_surf_1 = pg.image.load('images/pipe_for_flappy.png').convert_alpha()
+        self.origin_surf_1 = pg.image.load('images/pipe.png').convert_alpha()
         self.new_surf_1 = pg.transform.scale(self.origin_surf_1,
                                              (self.origin_surf_1.get_width() / 1.7,
                                               self.origin_surf_1.get_height() / 2))
-        self.origin_rect_1 = self.new_surf_1.get_rect(midtop=(W + 100, rand_height_1))
+        self.origin_rect_1 = self.new_surf_1.get_rect(midtop=(W + 100 + x_offset, rand_height_1))
 
-        self.origin_surf_2 = pg.image.load('images/pipe_for_flappy.png').convert_alpha()
+        self.origin_surf_2 = pg.image.load('images/pipe.png').convert_alpha()
         self.new_surf_2 = pg.transform.scale(self.origin_surf_2,
                                              (self.origin_surf_2.get_width() / 1.7,
                                               self.origin_surf_2.get_height() / 2))
         self.final_surf_2 = pg.transform.rotate(self.new_surf_2, 180)
-        self.origin_rect_2 = self.final_surf_2.get_rect(midbottom=(W + 100, rand_height_1 - 150))
+        self.origin_rect_2 = self.final_surf_2.get_rect(midbottom=(W + 100 + x_offset, rand_height_1 - 150))
 
         self.mask_1 = pg.mask.from_surface(self.new_surf_1)
         self.mask_2 = pg.mask.from_surface(self.final_surf_2)
+
+        # Добавляем флаг для отслеживания счета
+        self.passed = False
 
     def move(self):
         self.origin_rect_1.x -= speed
@@ -40,7 +43,7 @@ class Pipes:
         screen.blit(self.final_surf_2, self.origin_rect_2)
 
     def is_offscreen(self):
-        return self.origin_rect_1.x < 0
+        return self.origin_rect_1.x <= -100
 
 
 class Bird:
@@ -83,23 +86,52 @@ def collisions(bird, pipes_list):
 
 
 pg.init()
+
+pg.mixer.music.load('music.wav')
+pg.mixer.music.play(-1)
+
 screen = pg.display.set_mode((W, H))
 pg.display.set_caption("Игра")
 clock = pg.time.Clock()
 
+# Создаем шрифты
+font = pg.font.SysFont(None, 48)
+title_font = pg.font.SysFont(None, 72)
+instruction_font = pg.font.SysFont(None, 36)
+
 all_pipes = []
 
 bird = Bird()
-pipes = Pipes()
 
 screen.fill(BG)
 bird.draw(screen)
-pipes.draw(screen)
 pg.display.update()
 
+# Флаги состояния игры
+game_started = False
 flag_play = True
 SPAWN_EVENT = pg.USEREVENT + 1
-pg.time.set_timer(SPAWN_EVENT, 1500)
+
+
+def show_start_screen():
+    screen.fill(BG)
+
+    # Рисуем птицу
+    bird.draw(screen)
+
+    # Заголовок
+    title_text = title_font.render('Flappy Bird', True, (255, 255, 255))
+    screen.blit(title_text, (W // 2 - title_text.get_width() // 2, 100))
+
+    # Инструкция
+    instruction_text = instruction_font.render('Нажмите ПРОБЕЛ для старта', True, (255, 255, 255))
+    screen.blit(instruction_text, (W // 2 - instruction_text.get_width() // 2, H // 2))
+
+
+    pg.display.update()
+
+
+show_start_screen()
 
 while flag_play:
     clock.tick(FPS)
@@ -112,14 +144,34 @@ while flag_play:
             break
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_SPACE:
-                bird.flap()
-        if event.type == SPAWN_EVENT:
+                if not game_started:
+                    # Начинаем игру при первом нажатии пробела
+                    game_started = True
+                    pg.time.set_timer(SPAWN_EVENT, 1500)
+                    # Сбрасываем начальные значения
+                    velocity = 0
+                    score = 0
+                    bird.origin_rect.center = (W / 6, H / 2)
+                    all_pipes.clear()
+                    # Сразу создаем первую пару труб
+                    all_pipes.append(Pipes())
+                else:
+                    # Если игра уже идет, пробел для прыжка
+                    bird.flap()
+        if event.type == SPAWN_EVENT and game_started:
             all_pipes.append(Pipes())
+
+    if not game_started:
+        continue
 
     bird.move()
 
     for elem in all_pipes[:]:
         elem.move()
+
+        if not elem.passed and elem.origin_rect_1.right < bird.origin_rect.left:
+            elem.passed = True
+            score += 1
 
     all_pipes = [pipes for pipes in all_pipes if not pipes.is_offscreen()]
 
@@ -130,4 +182,8 @@ while flag_play:
     for elem in all_pipes:
         elem.draw(screen)
     bird.draw(screen)
+
+    score_text = font.render(f'Score: {score}', True, (255, 255, 255))
+    screen.blit(score_text, (20, 20))
+
     pg.display.update()

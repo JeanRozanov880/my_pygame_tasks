@@ -9,6 +9,7 @@ gravity = 0.25
 velocity = 0
 jump_strength = -7
 score = 0
+high_score = 0
 
 
 class Pipes:
@@ -43,7 +44,7 @@ class Pipes:
         screen.blit(self.final_surf_2, self.origin_rect_2)
 
     def is_offscreen(self):
-        return self.origin_rect_1.x == 0
+        return self.origin_rect_1.x + self.origin_rect_1.width < 0
 
 
 class Bird:
@@ -69,25 +70,22 @@ class Bird:
 
     def check_pos(self):
         if self.origin_rect.bottom > H + self.new_surf.get_height() / 3:
-            pg.quit()
+            return True
         if self.origin_rect.top <= 0 - self.new_surf.get_height() / 3:
-            pg.quit()
+            return True
+        return False
 
 
 def collisions(bird, pipes_list):
-    game_end = False
     for pipes in pipes_list:
         offset_1 = (pipes.origin_rect_1.x - bird.origin_rect.x, pipes.origin_rect_1.y - bird.origin_rect.y)
         offset_2 = (pipes.origin_rect_2.x - bird.origin_rect.x, pipes.origin_rect_2.y - bird.origin_rect.y)
 
         if bird.mask.overlap(pipes.mask_1, offset_1) is not None:
-            text_end = font.render('Нажмите R для рестарта', True, (255, 255, 255))
-            game_end = True
-            return text_end, game_end
+            return True
         if bird.mask.overlap(pipes.mask_2, offset_2) is not None:
-            text_end = font.render('Нажмите R для рестарта', True, (255, 255, 255))
-            game_end = True
-            return text_end, game_end
+            return True
+    return False
 
 
 pg.init()
@@ -96,7 +94,7 @@ pg.mixer.music.load('background_music.wav')
 pg.mixer.music.play(-1)
 
 screen = pg.display.set_mode((W, H))
-pg.display.set_caption("Игра")
+pg.display.set_caption("Flappy Bird")
 clock = pg.time.Clock()
 
 # шрифты
@@ -113,19 +111,35 @@ pg.display.update()
 
 # флаги состояния игры
 game_started = False
+game_over = False
 flag_play = True
 SPAWN_EVENT = pg.USEREVENT + 1
 
 
 def show_start_screen():
     screen.fill(BG)
-
-    # рисуем птицу
     bird.draw(screen)
-
-    # инструкция
     instruction_text = instruction_font.render('Нажмите ПРОБЕЛ для старта', True, (255, 255, 255))
     screen.blit(instruction_text, (W // 2 - instruction_text.get_width() // 2, H // 2))
+
+    if high_score > 0:
+        high_score_text = font.render(f'Max Score: {high_score}', True, (255, 255, 0))
+        screen.blit(high_score_text, (W // 2 - high_score_text.get_width() // 2, H // 2 + 60))
+
+    pg.display.update()
+
+
+def show_game_over_screen():
+    screen.fill(BG)
+
+    score_text = font.render(f'Score: {score}', True, (255, 255, 255))
+    screen.blit(score_text, (W // 2 - score_text.get_width() // 2, H // 2 - 60))
+
+    high_score_text = font.render(f'High Score: {high_score}', True, (255, 255, 0))
+    screen.blit(high_score_text, (W // 2 - high_score_text.get_width() // 2, H // 2))
+
+    restart_text = instruction_font.render('Нажмите ПРОБЕЛ для рестарта', True, (255, 255, 255))
+    screen.blit(restart_text, (W // 2 - restart_text.get_width() // 2, H // 2 + 60))
 
     pg.display.update()
 
@@ -143,24 +157,36 @@ while flag_play:
             break
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_SPACE:
-                if not game_started:
+                if not game_started and not game_over:
                     # при нажатии пробела игра начинается
                     game_started = True
                     pg.time.set_timer(SPAWN_EVENT, 1500)
                     # сбрасываем начальные значения
                     velocity = 0
                     score = 0
-                    bird.origin_rect.center = (W / 6, H / 2)
+                    bird.origin_rect.center = (W // 6, H // 2)
                     all_pipes.clear()
                     # сразу создаем первую пару труб
                     all_pipes.append(Pipes())
-                else:
+                elif game_started and not game_over:
                     # если игра уже идет, пробел для прыжка
                     bird.flap()
-        if event.type == SPAWN_EVENT and game_started:
+            if event.key == pg.K_SPACE and game_over:
+                game_over = False
+                game_started = True
+                velocity = 0
+                score = 0
+                bird.origin_rect.center = (W // 6, H // 2)
+                all_pipes.clear()
+                pg.time.set_timer(SPAWN_EVENT, 1500)
+                all_pipes.append(Pipes())
+
+        if event.type == SPAWN_EVENT and game_started and not game_over:
             all_pipes.append(Pipes())
 
-    if not game_started:
+    if not game_started or game_over:
+        if game_over:
+            show_game_over_screen()
         continue
 
     bird.move()
@@ -171,11 +197,17 @@ while flag_play:
         if elem.origin_rect_1.right - 185 < bird.origin_rect.left and not elem.passed:
             elem.passed = True
             score += 1
+            if score > high_score:
+                high_score = score
 
     all_pipes = [pipes for pipes in all_pipes if not pipes.is_offscreen()]
 
-    collisions(bird, all_pipes)
-    bird.check_pos()
+    if collisions(bird, all_pipes) or bird.check_pos():
+        game_over = True
+        game_started = False
+        pg.time.set_timer(SPAWN_EVENT, 0)
+        show_game_over_screen()
+        continue
 
     screen.fill(BG)
     for elem in all_pipes:
@@ -184,5 +216,8 @@ while flag_play:
 
     score_text = font.render(f'Score: {score}', True, (255, 255, 255))
     screen.blit(score_text, (20, 20))
+
+    high_score_text = font.render(f'High: {high_score}', True, (255, 255, 0))
+    screen.blit(high_score_text, (W - high_score_text.get_width() - 20, 20))
 
     pg.display.update()
